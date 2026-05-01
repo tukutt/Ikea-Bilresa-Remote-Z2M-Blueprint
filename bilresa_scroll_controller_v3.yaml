@@ -1,8 +1,11 @@
 blueprint:
-  name: Bilrea Scroll Controller V1.3
-  author: whag
+  name: Bilresa Controller (Luminosité, Couleurs Manuelles, Animation)
+  author: AI
   description: >
-    Control Lights (Brightness, Temp, Color), Media, or Climate using the Bilrea Smart Scrollwheel remote.
+    Control Lights with specific usage: 
+    - Molette : luminosité (bas -> off, droite -> on)
+    - Clic : lance le défilement de 10 couleurs (clic à nouveau pour stopper)
+    - Double clic : lance une animation "Breathe" (double clic pour stopper)
   domain: automation
   input:
     mqtt_topic:
@@ -12,67 +15,30 @@ blueprint:
       selector:
         text:
     controlled_entity:
-      name: Entity to Control
-      description: "The light, media player, or climate entity you wish to manage."
+      name: Light to Control
+      description: "The light entity you wish to manage."
       selector:
         entity:
-          domain: [light, media_player, climate]
-          multiple: true
-    control_mode:
-      name: Control Mode
-      description: "Select which attribute the rotation should adjust."
-      default: light_brightness
-      selector:
-        select:
-          options:
-            - {label: "Light - Brightness", value: light_brightness}
-            - {label: "Light - Colour Temp", value: light_temp}
-            - {label: "Light - Colour Wheel (RGB)", value: light_color}
-            - {label: "Media Volume", value: media}
-            - {label: "Climate Temperature", value: climate}
-            
-    # --- SCALED STEP SIZES ---
+          domain: light
+          multiple: false
     step_brightness:
       name: Brightness Step Percentage
-      description: "Percentage change per click (1-100)."
+      description: "Percentage change per scroll step (1-100)."
       default: 10
       selector:
         number: {min: 1, max: 100, step: 1, unit_of_measurement: "%"}
-    step_temp:
-      name: Colour Temp Step
-      description: "Mireds to shift per click (e.g., 20). Lower is smoother."
-      default: 30
+    color_transition:
+      name: Color Transition Time
+      description: "Time in seconds to transition between colors in the loop."
+      default: 2
       selector:
-        number: {min: 1, max: 100, step: 1}
-    step_color:
-      name: Colour Hue Step
-      description: "Degrees to rotate the colour wheel (1-360). Recommended: 5."
-      default: 5
-      selector:
-        number: {min: 1, max: 360, step: 1, unit_of_measurement: "°"}
-    step_media:
-      name: Volume Step Percentage
-      description: "Volume change per click (0.01 to 0.1). Recommended: 0.05."
-      default: 0.05
-      selector:
-        number: {min: 0.01, max: 0.2, step: 0.01}
-    step_climate:
-      name: Temperature Step
-      description: "Degrees Celsius to adjust per click (e.g., 0.5)."
-      default: 0.5
-      selector:
-        number: {min: 0.1, max: 5, step: 0.1, unit_of_measurement: "°C"}
-
+        number: {min: 0.5, max: 10, step: 0.5, unit_of_measurement: "s"}
     session_timeout:
       name: Session Timeout
       description: "Seconds to wait for the next turn before the command sequence ends."
       default: 1
       selector:
         number: {min: 0.5, max: 5, step: 0.5, unit_of_measurement: "s"}
-    action_single_on: {name: Single On, default: [], selector: {action: {}}}
-    action_single_off: {name: Single Off, default: [], selector: {action: {}}}
-    action_double_on: {name: Double On, default: [], selector: {action: {}}}
-    action_double_off: {name: Double Off, default: [], selector: {action: {}}}
 
 mode: single
 max_exceeded: silent
@@ -106,29 +72,97 @@ trigger:
 
 variables:
   target_entity: !input controlled_entity
-  mode: !input control_mode
-  # Map inputs to internal variables
   s_bright: !input step_brightness
-  s_temp: !input step_temp
-  s_color: !input step_color
-  s_media: !input step_media
-  s_climate: !input step_climate
 
 action:
-  - choose:
-      - conditions: "{{ trigger.id == 'trig_on' }}"
-        sequence: !input action_single_on
-      - conditions: "{{ trigger.id == 'trig_off' }}"
-        sequence: !input action_single_off
-      - conditions: "{{ trigger.id == 'trig_on_double' }}"
-        sequence: !input action_double_on
-      - conditions: "{{ trigger.id == 'trig_off_double' }}"
-        sequence: !input action_double_off
+  - variables:
+      is_on_click: "{{ trigger.id in ['trig_on', 'trig_off'] }}"
+      is_double_click: "{{ trigger.id in ['trig_on_double', 'trig_off_double'] }}"
 
+  - choose:
+      # --- SINGLE CLICK: COLOR LOOP ---
+      - conditions: "{{ is_on_click }}"
+        sequence:
+          - variables:
+              colors: 
+                - [255, 0, 0]      # Rouge
+                - [255, 127, 0]    # Orange
+                - [255, 255, 0]    # Jaune
+                - [0, 255, 0]      # Vert
+                - [0, 255, 255]    # Cyan
+                - [0, 0, 255]      # Bleu
+                - [127, 0, 255]    # Violet
+                - [255, 0, 255]    # Magenta
+                - [255, 100, 150]  # Rose
+                - [255, 255, 255]  # Blanc
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - variables:
+                    current_idx: "{{ (repeat.index - 1) % 10 }}"
+                - service: light.turn_on
+                  target: { entity_id: !input controlled_entity }
+                  data:
+                    rgb_color: "{{ colors[current_idx] }}"
+                    transition: !input color_transition
+                - wait_for_trigger:
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
+                      payload: "True"
+                  timeout:
+                    seconds: !input color_transition
+                - if:
+                    - condition: template
+                      value_template: "{{ wait.trigger is not none }}"
+                  then:
+                    - stop: "Color loop stopped by user interaction."
+
+      # --- DOUBLE CLICK: ANIMATION (Breathe) ---
+      - conditions: "{{ is_double_click }}"
+        sequence:
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - service: light.turn_on
+                  target: { entity_id: !input controlled_entity }
+                  data:
+                    brightness_pct: 100
+                    transition: 2
+                - wait_for_trigger:
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
+                      payload: "True"
+                  timeout:
+                    seconds: 2
+                - if:
+                    - condition: template
+                      value_template: "{{ wait.trigger is not none }}"
+                  then:
+                    - stop: "Animation stopped by user interaction."
+                - service: light.turn_on
+                  target: { entity_id: !input controlled_entity }
+                  data:
+                    brightness_pct: 10
+                    transition: 2
+                - wait_for_trigger:
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
+                      payload: "True"
+                  timeout:
+                    seconds: 2
+                - if:
+                    - condition: template
+                      value_template: "{{ wait.trigger is not none }}"
+                  then:
+                    - stop: "Animation stopped by user interaction."
+
+      # --- SCROLL: BRIGHTNESS ---
       - conditions: "{{ trigger.id == 'trig_scroll' }}"
         sequence:
           - variables:
-              # HANDLE INITIAL NULL/1
               start_val: "{{ 255 if trigger.payload_json.brightness is none else trigger.payload_json.brightness | int }}"
               new_action: "brightness_move_to_level"
 
@@ -137,29 +171,30 @@ action:
               sequence:
                 - wait_for_trigger:
                     - platform: mqtt
-                      id: "on"
+                      id: "scroll"
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_to_level"
+                      value_template: "{{ value_json.action }}"
+                    # Interruption par clic
+                    - platform: mqtt
+                      id: "interrupt"
                       topic: !input mqtt_topic
                       payload: "on"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
-                      id: "off"
+                      id: "interrupt"
                       topic: !input mqtt_topic
                       payload: "off"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
-                      id: "on_double"
+                      id: "interrupt"
                       topic: !input mqtt_topic
                       payload: "on_double"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
-                      id: "off_double"
+                      id: "interrupt"
                       topic: !input mqtt_topic
                       payload: "off_double"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      id: "scroll"
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_to_level"
                       value_template: "{{ value_json.action }}"
                   timeout: 
                     seconds: !input session_timeout
@@ -170,73 +205,42 @@ action:
                   then:
                     - stop: "Session Timed Out"
                   else:
+                    - choose:
+                        - conditions: "{{ wait.trigger.id == 'interrupt' }}"
+                          sequence:
+                            - stop: "Scroll interrupted by click."
+                    
                     - variables:
                         new_action: "{{ wait.trigger.payload_json.action }}"
+                        raw_val: "{{ wait.trigger.payload_json.brightness }}"
+                        new_val: "{{ 255 if raw_val is none else raw_val | int }}"
+                        direction: >
+                          {% set delta = (new_val | int) - (start_val | int) %}
+                          {% if delta > 0 or new_val >= 255 %} 1
+                          {% elif delta < 0 or new_val <= 1 %} -1
+                          {% else %} 0 {% endif %}
 
-                    - choose:
-                        - conditions: "{{ wait.trigger.id in ['on', 'off', 'on_double', 'off_double'] }}"
-                          sequence:
-                            - choose:
-                                - conditions: "{{ new_action == 'on' }}"
-                                  sequence: !input action_single_on
-                                - conditions: "{{ new_action == 'off' }}"
-                                  sequence: !input action_single_off
-                                - conditions: "{{ new_action == 'on_double' }}"
-                                  sequence: !input action_double_on
-                                - conditions: "{{ new_action == 'off_double' }}"
-                                  sequence: !input action_double_off
-
-                        - conditions: "{{ wait.trigger.id == 'scroll' }}"
-                          sequence:
-                            - variables:
-                                # HANDLE LIMIT NULL/1
-                                raw_val: "{{ wait.trigger.payload_json.brightness }}"
-                                new_val: "{{ 255 if raw_val is none else raw_val | int }}"
-                                direction: >
-                                  {% set delta = (new_val | int) - (start_val | int) %}
-                                  {% if delta > 0 or new_val >= 255 %} 1
-                                  {% elif delta < 0 or new_val <= 1 %} -1
-                                  {% else %} 0 {% endif %}
-
-                            - if:
-                                - condition: template
-                                  value_template: "{{ direction != 0 }}"
-                              then:
-                                - choose:
-                                    - conditions: "{{ mode == 'light_brightness' }}"
-                                      sequence:
-                                        - service: light.turn_on
-                                          target: { entity_id: !input controlled_entity }
-                                          data: { brightness_step_pct: "{{ s_bright * direction }}", transition: 0.1 }
-                                    - conditions: "{{ mode == 'light_temp' }}"
-                                      sequence:
-                                        - service: light.turn_on
-                                          target: { entity_id: !input controlled_entity }
-                                          data:
-                                            color_temp: >
-                                              {% set current = state_attr(target_entity, 'color_temp') | int(370) %}
-                                              {% set min_m = state_attr(target_entity, 'min_mireds') | int(153) %}
-                                              {% set max_m = state_attr(target_entity, 'max_mireds') | int(500) %}
-                                              {{ [min_m, [current - (s_temp * direction), max_m]|min]|max }}
-                                            transition: 0.1
-                                    - conditions: "{{ mode == 'light_color' }}"
-                                      sequence:
-                                        - service: light.turn_on
-                                          target: { entity_id: !input controlled_entity }
-                                          data:
-                                            hs_color:
-                                              - "{{ ( (state_attr(target_entity, 'hs_color')[0] | default(0) | float) + (s_color * direction) ) % 360 }}"
-                                              - "{{ (state_attr(target_entity, 'hs_color')[1] | default(100) | float) }}"
-                                            transition: 0.1
-                                    - conditions: "{{ mode == 'media' }}"
-                                      sequence:
-                                        - service: >
-                                            {% if direction == 1 %} media_player.volume_up
-                                            {% else %} media_player.volume_down {% endif %}
-                                          target: { entity_id: !input controlled_entity }
-                                    - conditions: "{{ mode == 'climate' }}"
-                                      sequence:
-                                        - service: climate.set_temperature
-                                          target: { entity_id: !input controlled_entity }
-                                          data:
-                                            temperature: "{{ state_attr(target_entity, 'temperature') | float(20) + (s_climate * direction) }}"
+                    - if:
+                        - condition: template
+                          value_template: "{{ direction != 0 }}"
+                      then:
+                        - choose:
+                            - conditions: "{{ direction == -1 and (new_val <= 1 or state_attr(target_entity, 'brightness') | default(255) | int <= (s_bright * 2.55)) }}"
+                              sequence:
+                                - service: light.turn_off
+                                  target: { entity_id: !input controlled_entity }
+                                  data:
+                                    transition: 0.1
+                            - conditions: "{{ direction == 1 and is_state(target_entity, 'off') }}"
+                              sequence:
+                                - service: light.turn_on
+                                  target: { entity_id: !input controlled_entity }
+                                  data:
+                                    brightness_pct: "{{ s_bright }}"
+                                    transition: 0.1
+                          default:
+                            - service: light.turn_on
+                              target: { entity_id: !input controlled_entity }
+                              data:
+                                brightness_step_pct: "{{ s_bright * direction }}"
+                                transition: 0.1
