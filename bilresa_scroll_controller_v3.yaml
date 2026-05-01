@@ -309,6 +309,15 @@ action:
                             - service: light.turn_off
                               target: { entity_id: !input controlled_entity }
                           else:
+                            - if:
+                                - condition: state
+                                  entity_id: !input controlled_entity
+                                  state: 'off'
+                              then:
+                                - service: light.turn_on
+                                  target: { entity_id: !input controlled_entity }
+                                  data:
+                                    brightness: 1
                             - service: light.turn_on
                               target: { entity_id: !input controlled_entity }
                               data:
@@ -332,6 +341,15 @@ action:
                     # CAS 3: Pas relatif vers le HAUT
                     - conditions: "{{ action_type in ['brightness_step_up', 'brightness_move_up'] }}"
                       sequence:
+                        - if:
+                            - condition: state
+                              entity_id: !input controlled_entity
+                              state: 'off'
+                          then:
+                            - service: light.turn_on
+                              target: { entity_id: !input controlled_entity }
+                              data:
+                                brightness: 1
                         - service: light.turn_on
                           target: { entity_id: !input controlled_entity }
                           data:
