@@ -100,8 +100,20 @@ action:
       is_double_click: "{{ trigger.id in ['trig_on_double', 'trig_off_double'] }}"
 
   - choose:
-      # --- SINGLE CLICK: COLOR LOOP ---
-      - conditions: "{{ is_on_click }}"
+      # --- SINGLE CLICK ON ---
+      - conditions: "{{ trigger.id == 'trig_on' }}"
+        sequence:
+          - service: light.turn_on
+            target: { entity_id: !input controlled_entity }
+
+      # --- SINGLE CLICK OFF ---
+      - conditions: "{{ trigger.id == 'trig_off' }}"
+        sequence:
+          - service: light.turn_off
+            target: { entity_id: !input controlled_entity }
+
+      # --- DOUBLE CLICK: COLOR LOOP ---
+      - conditions: "{{ is_double_click }}"
         sequence:
           - variables:
               colors: 
@@ -127,18 +139,22 @@ action:
                     transition: !input color_transition
                 - wait_for_trigger:
                     - platform: mqtt
+                      id: "trig_on"
                       topic: !input mqtt_topic
                       payload: "on"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
+                      id: "trig_off"
                       topic: !input mqtt_topic
                       payload: "off"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
+                      id: "trig_on_double"
                       topic: !input mqtt_topic
                       payload: "on_double"
                       value_template: "{{ value_json.action }}"
                     - platform: mqtt
+                      id: "trig_off_double"
                       topic: !input mqtt_topic
                       payload: "off_double"
                       value_template: "{{ value_json.action }}"
@@ -168,112 +184,13 @@ action:
                     - condition: template
                       value_template: "{{ wait.trigger is not none }}"
                   then:
+                    - if:
+                        - condition: template
+                          value_template: "{{ wait.trigger.id == 'trig_off' }}"
+                      then:
+                        - service: light.turn_off
+                          target: { entity_id: !input controlled_entity }
                     - stop: "Color loop stopped by user interaction."
-
-      # --- DOUBLE CLICK: ANIMATION (Breathe) ---
-      - conditions: "{{ is_double_click }}"
-        sequence:
-          - repeat:
-              while: "{{ true }}"
-              sequence:
-                - service: light.turn_on
-                  target: { entity_id: !input controlled_entity }
-                  data:
-                    brightness_pct: 100
-                    transition: 2
-                - wait_for_trigger:
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "on"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "off"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "on_double"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "off_double"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_to_level"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_step_up"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_step_down"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_up"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_down"
-                      value_template: "{{ value_json.action }}"
-                  timeout:
-                    seconds: 2
-                - if:
-                    - condition: template
-                      value_template: "{{ wait.trigger is not none }}"
-                  then:
-                    - stop: "Animation stopped by user interaction."
-                - service: light.turn_on
-                  target: { entity_id: !input controlled_entity }
-                  data:
-                    brightness_pct: 10
-                    transition: 2
-                - wait_for_trigger:
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "on"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "off"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "on_double"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "off_double"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_to_level"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_step_up"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_step_down"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_up"
-                      value_template: "{{ value_json.action }}"
-                    - platform: mqtt
-                      topic: !input mqtt_topic
-                      payload: "brightness_move_down"
-                      value_template: "{{ value_json.action }}"
-                  timeout:
-                    seconds: 2
-                - if:
-                    - condition: template
-                      value_template: "{{ wait.trigger is not none }}"
-                  then:
-                    - stop: "Animation stopped by user interaction."
 
       # --- SCROLL: BRIGHTNESS ---
       - conditions: "{{ trigger.id == 'trig_scroll' }}"
