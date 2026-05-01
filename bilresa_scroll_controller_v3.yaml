@@ -67,8 +67,28 @@ trigger:
   - platform: mqtt
     id: "trig_scroll"
     topic: !input mqtt_topic
-    value_template: "{{ value_json.action is defined and value_json.action in ['brightness_move_to_level', 'brightness_step_up', 'brightness_step_down', 'brightness_move_up', 'brightness_move_down'] }}"
-    payload: "True"
+    payload: "brightness_move_to_level"
+    value_template: "{{ value_json.action }}"
+  - platform: mqtt
+    id: "trig_scroll"
+    topic: !input mqtt_topic
+    payload: "brightness_step_up"
+    value_template: "{{ value_json.action }}"
+  - platform: mqtt
+    id: "trig_scroll"
+    topic: !input mqtt_topic
+    payload: "brightness_step_down"
+    value_template: "{{ value_json.action }}"
+  - platform: mqtt
+    id: "trig_scroll"
+    topic: !input mqtt_topic
+    payload: "brightness_move_up"
+    value_template: "{{ value_json.action }}"
+  - platform: mqtt
+    id: "trig_scroll"
+    topic: !input mqtt_topic
+    payload: "brightness_move_down"
+    value_template: "{{ value_json.action }}"
 
 variables:
   target_entity: !input controlled_entity
@@ -108,8 +128,40 @@ action:
                 - wait_for_trigger:
                     - platform: mqtt
                       topic: !input mqtt_topic
-                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
-                      payload: "True"
+                      payload: "on"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "on_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_to_level"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_down"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_down"
+                      value_template: "{{ value_json.action }}"
                   timeout:
                     seconds: !input color_transition
                 - if:
@@ -132,8 +184,40 @@ action:
                 - wait_for_trigger:
                     - platform: mqtt
                       topic: !input mqtt_topic
-                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
-                      payload: "True"
+                      payload: "on"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "on_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_to_level"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_down"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_down"
+                      value_template: "{{ value_json.action }}"
                   timeout:
                     seconds: 2
                 - if:
@@ -149,8 +233,40 @@ action:
                 - wait_for_trigger:
                     - platform: mqtt
                       topic: !input mqtt_topic
-                      value_template: "{{ value_json.action is defined and value_json.action != '' and value_json.action != 'None' }}"
-                      payload: "True"
+                      payload: "on"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "on_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "off_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_to_level"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_down"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_down"
+                      value_template: "{{ value_json.action }}"
                   timeout:
                     seconds: 2
                 - if:
@@ -221,18 +337,48 @@ action:
                           data:
                             brightness_step_pct: "{{ s_bright }}"
 
-                # Attente du prochain cran de molette
                 - wait_for_trigger:
                     - platform: mqtt
                       topic: !input mqtt_topic
-                      value_template: "{{ value_json.action is defined and value_json.action in ['brightness_move_to_level', 'brightness_step_up', 'brightness_step_down', 'brightness_move_up', 'brightness_move_down'] }}"
-                      payload: "True"
+                      payload: "brightness_move_to_level"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_step_down"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_up"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      topic: !input mqtt_topic
+                      payload: "brightness_move_down"
+                      value_template: "{{ value_json.action }}"
                     # Interruption par clic
                     - platform: mqtt
                       id: "interrupt"
                       topic: !input mqtt_topic
-                      value_template: "{{ value_json.action is defined and value_json.action in ['on', 'off', 'on_double', 'off_double'] }}"
-                      payload: "True"
+                      payload: "on"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      id: "interrupt"
+                      topic: !input mqtt_topic
+                      payload: "off"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      id: "interrupt"
+                      topic: !input mqtt_topic
+                      payload: "on_double"
+                      value_template: "{{ value_json.action }}"
+                    - platform: mqtt
+                      id: "interrupt"
+                      topic: !input mqtt_topic
+                      payload: "off_double"
+                      value_template: "{{ value_json.action }}"
                   timeout: 
                     seconds: !input session_timeout
 
